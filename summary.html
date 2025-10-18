@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>สรุปผลกิจกรรม</h2>
+
+    <ul class="nav nav-tabs" id="summaryTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="daily-tab" data-bs-toggle="tab" data-bs-target="#daily" type="button" role="tab">รายวัน (รายละเอียด)</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="weekly-tab" data-bs-toggle="tab" data-bs-target="#weekly" type="button" role="tab">รายสัปดาห์</button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="monthly-tab" data-bs-toggle="tab" data-bs-target="#monthly" type="button" role="tab">รายเดือน</button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="summaryTabsContent">
+
+        <div class="tab-pane fade show active p-3" id="daily" role="tabpanel">
+            <h4>สรุปรายวัน (ดาว ⭐️ และ กิจกรรม)</h4>
+
+            <ul class="list-group">
+                {% for date, data in summary_data.items() | sort(reverse=True) %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong>{{ date }}</strong>
+                            <span class="badge bg-dark rounded-pill">{{ data.stars|length }} ดาว</span>
+                        </div>
+
+                        <div class="mt-2">
+                            <strong>ดาวที่ได้รับ:</strong>
+                            {% if data.stars %}
+                                {% for category in data.stars %}
+                                    <span class="badge {{ category_colors.get(category, 'bg-secondary') }} m-1">
+                                        ⭐️ {{ category }}
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted"> (ไม่ได้รับดาวในวันนี้)</span>
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-2">
+                            <strong>กิจกรรมที่บันทึก:</strong>
+                            {% if data.deeds %}
+                                <ul class="list-unstyled mt-1" style="font-size: 0.9rem;">
+                                    {% for deed in data.deeds %}
+                                        <li>
+                                            - {{ deed.description }}
+                                            <span class="badge {{ category_colors.get(deed.category, 'bg-secondary') }}">{{ deed.category }}</span>
+                                            <small class="text-muted">({{ deed.time }})</small>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <span class="text-muted"> (ไม่มีกิจกรรมที่บันทึก)</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% else %}
+                    <li class="list-group-item">ยังไม่มีการสะสมดาวหรือกิจกรรม</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <div class="tab-pane fade p-3" id="weekly" role="tabpanel">
+            <h4>สรุปรายสัปดาห์ (หมวดหมู่ดาว)</h4>
+            <canvas id="weeklyCategoryChart"></canvas>
+        </div>
+
+        <div class="tab-pane fade p-3" id="monthly" role="tabpanel">
+            <h4>สรุปรายเดือน (จำนวนดาวทั้งหมดที่ได้)</h4>
+            <canvas id="monthlyStarChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const allStarsData = {{ stars_data_for_js | tojson }};
+        const categoryColorsMap = {{ bootstrap_colors_map | tojson }};
+    </script>
+{% endblock %}
+
+
+{% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/date-fns/2.30.0/date_fns.min.js"></script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- 1. Weekly Chart (กราฟวงกลมหมวดหมู่) ---
+            const weeklyCtx = document.getElementById('weeklyCategoryChart');
+            if (weeklyCtx && allStarsData.length > 0) {
+                const now = new Date();
+                const startOfWeek = dateFns.startOfWeek(now);
+                const endOfWeek = dateFns.endOfWeek(now);
+
+                const weeklyStars = allStarsData.filter(d => {
+                    const starDate = new Date(d.date);
+                    return starDate >= startOfWeek && starDate <= endOfWeek;
+                });
+
+                const categoryCounts = weeklyStars.reduce((acc, star) => {
+                    const category = star.category || 'อื่นๆ';
+                    acc[category] = (acc[category] || 0) + 1;
+                    return acc;
+                }, {});
+
+                const labels = Object.keys(categoryCounts);
+                const colors = labels.map(label => categoryColorsMap[label] || 'rgba(100, 100, 100, 0.7)');
+
+                new Chart(weeklyCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'หมวดหมู่ดาว',
+                            data: Object.values(categoryCounts),
+                            backgroundColor: colors,
+                        }]
+                    },
+                });
+            }
+
+            // --- 2. Monthly Chart (กราฟแท่ง) ---
+            const monthlyCtx = document.getElementById('monthlyStarChart');
+            if (monthlyCtx && allStarsData.length > 0) {
+
+                const now = new Date();
+                const daysInMonth = dateFns.getDaysInMonth(now);
+                const monthLabel = dateFns.format(now, 'MMMM yyyy');
+
+                const starCountsPerDay = new Array(daysInMonth).fill(0);
+                const labels = new Array(daysInMonth).fill(0).map((_, i) => i + 1);
+
+                let totalStars = 0;
+                allStarsData.filter(d => dateFns.isSameMonth(new Date(d.date), now))
+                            .forEach(star => {
+                                const dayOfMonth = new Date(star.date).getDate();
+                                starCountsPerDay[dayOfMonth - 1]++;
+                                totalStars++;
+                            });
+
+                new Chart(monthlyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: `จำนวนดาวทั้งหมดใน ${monthLabel} (รวม ${totalStars} ดาว)`,
+                            data: starCountsPerDay,
+                            backgroundColor: 'rgba(54, 162, 235, 0.7)', // สีฟ้า
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { stepSize: 1 }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+{% endblock %}

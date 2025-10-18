@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+    {% if todays_star_categories %}
+    <div class="alert alert-light text-center border">
+        <h2>ดาวที่คุณสะสมได้ในวันนี้:</h2>
+        <h4 class="mt-3">
+            {% for category in todays_star_categories %}
+                <span class="badge {{ category_colors.get(category, 'bg-secondary') }} m-1 p-2">
+                    ⭐️ {{ category }}
+                </span>
+            {% endfor %}
+        </h4>
+    </div>
+    {% else %}
+    <div class="alert alert-info text-center">
+        <h2>บันทึกกิจกรรมแรกของแต่ละหมวดหมู่ เพื่อรับดาวกัน!</h2>
+    </div>
+    {% endif %}
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">บันทึกสิ่งดีๆ วันนี้</h5>
+            <form method="POST" action="">
+                <div class="mb-3">
+                    <label for="description" class="form-label">คุณทำอะไรดีๆ มาบ้าง?</label>
+                    <input type="text" class="form-control" id="description" name="description" required>
+                </div>
+                <div class="mb-3">
+                    <label for="category" class="form-label">หมวดหมู่ (สำคัญมาก!)</label>
+                    <select class="form-select" id="category" name="category" required>
+                        <option value="">-- กรุณาเลือกหมวดหมู่ --</option>
+                        <option value="สุขภาพ">สุขภาพ (ออกกำลังกาย, อาหารคลีน)</option>
+                        <option value="สร้างสรรค์">สร้างสรรค์ (วาดภาพ, งานฝีมือ)</option>
+                        <option value="การงาน">การงาน/การเรียน</option>
+                        <option value="ครอบครัว/สังคม">ครอบครัว/สังคม (ช่วยเหลือ, ดูแล)</option>
+                        <option value="เล็กๆน้อยๆ">ชัยชนะเล็กๆ</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">บันทึก</button>
+            </form>
+        </div>
+    </div>
+
+    <h3>รายการที่ทำวันนี้</h3>
+    {% if deeds %}
+        <ul class="list-group">
+            {% for deed in deeds %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ deed.description }}
+                    <div>
+                        <span class="badge {{ category_colors.get(deed.category, 'bg-secondary') }} me-2">{{ deed.category }}</span>
+                        <small class="text-muted">{{ deed.date_posted.strftime('%H:%M น.') }}</small>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-muted">ยังไม่มีการบันทึกสำหรับวันนี้</p>
+    {% endif %}
+
+{% endblock %}

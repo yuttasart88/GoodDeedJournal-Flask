@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2 class="mb-4">Dashboard ความก้าวหน้า</h2>
+
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">สัดส่วนดาวทั้งหมด (All-Time)</h5>
+                    <p class="card-subtitle mb-2 text-muted">คุณโฟกัสกับหมวดหมู่ไหนมากที่สุด?</p>
+                    <canvas id="allTimePieChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">การเติบโตสะสม</h5>
+                    <p class="card-subtitle mb-2 text-muted">จำนวนดาวทั้งหมดที่สะสมได้เมื่อเวลาผ่านไป</p>
+                    <canvas id="cumulativeLineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <script>
+        const pieData = {{ pie_data | tojson }};
+        const cumulativeData = {{ cumulative_data_js | tojson }};
+        const categoryColorsMap = {{ bootstrap_colors_map | tojson }};
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const pieLabels = Object.keys(pieData);
+            const pieValues = Object.values(pieData);
+            const pieColors = pieLabels.map(label => categoryColorsMap[label] || 'rgba(100, 100, 100, 0.7)');
+
+            // --- 1. กราฟวงกลม (All-Time Pie) ---
+            const pieCtx = document.getElementById('allTimePieChart');
+            if (pieCtx && pieLabels.length > 0) {
+                new Chart(pieCtx, {
+                    type: 'pie',
+                    data: {
+                        labels: pieLabels,
+                        datasets: [{
+                            label: 'จำนวนดาว',
+                            data: pieValues,
+                            backgroundColor: pieColors,
+                            borderColor: '#fff',
+                            borderWidth: 1
+                        }]
+                    },
+                });
+            }
+
+            // --- 2. กราฟเส้น (Cumulative Line) ---
+            const lineCtx = document.getElementById('cumulativeLineChart');
+            if (lineCtx && cumulativeData.length > 0) {
+                new Chart(lineCtx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'จำนวนดาวสะสม',
+                            data: cumulativeData,
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.2,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day',
+                                    tooltipFormat: 'dd MMM yyyy'
+                                },
+                            },
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'จำนวนดาวสะสม'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+{% endblock %}
